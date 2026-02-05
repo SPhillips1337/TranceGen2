@@ -1,5 +1,9 @@
 import { initStrudel, samples } from 'https://esm.sh/@strudel/web@latest';
 
+// 0. Variables for visualizer
+let analyser = null;
+let dataArray = null;
+
 // 1. Initialize Strudel and register samples
 // RolandTR808 is not in the default Dirt-Samples, so we map it manually or use a different bank name.
 // We'll map the standard names (bd, sd, hh, oh) to the 808 samples directly for ease of use.
@@ -30,6 +34,19 @@ const phaseDisplay = document.getElementById('current-phase');
 const energyFill = document.getElementById('energy-fill');
 const visualizerCanvas = document.getElementById('visualizer');
 
+// Validation: Ensure all UI elements exist
+const uiElements = {
+    startBtn, stopBtn, bpmSlider, bpmVal, cutoffSlider,
+    resonanceSlider, phaseDisplay, energyFill, visualizerCanvas
+};
+
+Object.entries(uiElements).forEach(([name, element]) => {
+    if (!element) {
+        console.error(`Critical Error: DOM element "${name}" not found.`);
+        // In a real app, we might show a user-friendly overlay here
+    }
+});
+
 const PHASES = [
     { name: 'Intro', duration: 8, energy: 20 },
     { name: 'Groove', duration: 16, energy: 60 },
@@ -45,7 +62,6 @@ let currentPhaseIndex = 0;
 let barCount = 1;
 let currentEnergy = 0;
 let phaseInterval = null;
-let energyInterval = null;
 
 // Pattern Definitions
 const getTranceCode = () => {
@@ -144,42 +160,84 @@ const stopSession = () => {
     stopBtn.disabled = true;
     phaseDisplay.textContent = 'Silent';
     clearTimeout(phaseInterval);
-    clearInterval(energyInterval);
     energyFill.style.width = '0%';
 };
 
 // Automatic Phase Progression (Switch Angel)
+let lastBarStartTime = 0;
+let currentBarDuration = 0;
+
+const tick = () => {
+    if (!isPlaying) return;
+
+    // 1. Check if the previous bar was the last one of the phase
+    if (barCount > PHASES[currentPhaseIndex].duration) {
+        currentPhaseIndex = (currentPhaseIndex + 1) % PHASES.length;
+        barCount = 1;
+        console.log(`Phase Transition: ${PHASES[currentPhaseIndex].name}`);
+
+        // Evaluate new code so it starts playing for the new bar
+        evaluate(getTranceCode());
+    }
+
+    const phase = PHASES[currentPhaseIndex];
+
+    // 2. UI update for the bar that is starting NOW
+    phaseDisplay.textContent = `${phase.name} (Bar ${barCount}/${phase.duration})`;
+    energyFill.style.width = `${phase.energy}%`;
+    currentEnergy = phase.energy;
+
+    // 3. Increment for the NEXT tick
+    barCount++;
+
+    const bpm = Number(bpmSlider.value);
+    currentBarDuration = (60 / bpm) * 4 * 1000;
+    lastBarStartTime = Date.now();
+    phaseInterval = setTimeout(tick, currentBarDuration);
+};
+
 const startPhaseLoop = () => {
     clearTimeout(phaseInterval);
-
-    const getBarDuration = () => (60 / Number(bpmSlider.value)) * 4 * 1000;
-
-    const tick = () => {
-        if (!isPlaying) return;
-
-        const phase = PHASES[currentPhaseIndex];
-        phaseDisplay.textContent = `${phase.name} (Bar ${barCount}/${phase.duration})`;
-        energyFill.style.width = `${phase.energy}%`;
-        currentEnergy = phase.energy;
-
-        if (barCount >= phase.duration) {
-            currentPhaseIndex = (currentPhaseIndex + 1) % PHASES.length;
-            barCount = 1;
-            evaluate(getTranceCode());
-            console.log(`Phase Transition: ${PHASES[currentPhaseIndex].name}`);
-        } else {
-            barCount++;
-        }
-
-        phaseInterval = setTimeout(tick, getBarDuration());
-    };
-
     tick();
+};
+
+const syncPhaseLoop = () => {
+    if (!isPlaying) return;
+
+    // Calculate how far we were into the bar at the OLD bpm
+    const elapsed = Date.now() - lastBarStartTime;
+    const progress = Math.min(elapsed / currentBarDuration, 0.99);
+
+    // Calculate new duration
+    const bpm = Number(bpmSlider.value);
+    currentBarDuration = (60 / bpm) * 4 * 1000;
+
+    // Schedule next tick for the remaining time
+    clearTimeout(phaseInterval);
+    const remaining = currentBarDuration * (1 - progress);
+    phaseInterval = setTimeout(tick, remaining);
 };
 
 // Basic Visualizer (Oscilloscope style)
 const initVisualizer = () => {
     const ctx = visualizerCanvas.getContext('2d');
+
+    // Attempt to connect to Strudel's audio output for real visualization
+    if (strudel && strudel.output) {
+        try {
+            const audioCtx = strudel.context || (strudel.getAudioContext && strudel.getAudioContext());
+            if (audioCtx) {
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 256;
+                strudel.output.connect(analyser);
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                console.log('Successfully connected real audio visualizer');
+            }
+        } catch (e) {
+            console.warn('Could not connect real audio analyser, falling back to simulation', e);
+        }
+    }
+
     const draw = () => {
         if (!isPlaying) return;
         requestAnimationFrame(draw);
@@ -188,26 +246,45 @@ const initVisualizer = () => {
         ctx.fillRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
 
         // Dynamic styling based on energy
-        const hue = 180 + (currentEnergy * 0.8); // Shift from cyan toward purple/pink
+        const hue = 180 + (currentEnergy * 0.8);
         ctx.strokeStyle = `hsl(${hue}, 100%, 50%)`;
         ctx.lineWidth = 2 + (currentEnergy / 40);
         ctx.shadowBlur = currentEnergy / 5;
         ctx.shadowColor = ctx.strokeStyle;
 
-        const time = Date.now() / 1000;
-        const speed = 5 + (currentEnergy / 10);
-        const frequency = 0.02 + (currentEnergy / 2000);
-
         ctx.beginPath();
-        for (let x = 0; x < visualizerCanvas.width; x++) {
-            const y = (visualizerCanvas.height / 2) +
-                     Math.sin(x * frequency + time * speed) * (currentEnergy / 2) *
-                     Math.sin(time * 0.5); // Add some slow modulation
-            if (x === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
+
+        if (analyser && dataArray) {
+            // Real audio data
+            analyser.getByteTimeDomainData(dataArray);
+            const sliceWidth = visualizerCanvas.width * 1.0 / dataArray.length;
+            let x = 0;
+
+            for (let i = 0; i < dataArray.length; i++) {
+                const v = dataArray[i] / 128.0;
+                const y = v * visualizerCanvas.height / 2;
+
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+                x += sliceWidth;
+            }
+        } else {
+            // Enhanced simulation
+            const time = Date.now() / 1000;
+            const speed = 5 + (currentEnergy / 10);
+            const frequency = 0.02 + (currentEnergy / 2000);
+
+            for (let x = 0; x < visualizerCanvas.width; x++) {
+                const y = (visualizerCanvas.height / 2) +
+                         Math.sin(x * frequency + time * speed) * (currentEnergy / 2) *
+                         Math.sin(time * 0.5);
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
         }
+
         ctx.stroke();
-        ctx.shadowBlur = 0; // Reset for next frame
+        ctx.shadowBlur = 0;
     };
     draw();
 };
@@ -215,9 +292,10 @@ const initVisualizer = () => {
 // Utils
 const debounce = (func, wait) => {
     let timeout;
-    return (...args) => {
+    return function(...args) {
+        const context = this;
         clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(this, args), wait);
+        timeout = setTimeout(() => func.apply(context, args), wait);
     };
 };
 
@@ -232,6 +310,7 @@ stopBtn.addEventListener('click', stopSession);
 bpmSlider.addEventListener('input', () => {
     bpmVal.textContent = bpmSlider.value;
     debouncedEvaluate();
+    syncPhaseLoop();
 });
 
 cutoffSlider.addEventListener('input', debouncedEvaluate);
