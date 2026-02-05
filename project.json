@@ -1,0 +1,133 @@
+{
+  "$schema": "https://raw.githubusercontent.com/SPhillips1337/Project-JSON-Schema/main/schema/project.schema.json",
+  "name": "TranceGen2 Strudel New",
+  "version": "1.0.0",
+  "description": "A generative trance music engine built with Strudel that automatically creates evolving trance tracks with dynamic song structure using the Switch Angel methodology.",
+  "type": "web-application",
+  "status": "active",
+  "created": "2026-02-05",
+  "updated": "2026-02-05",
+  "author": {
+    "name": "Stephen Phillips",
+    "github": "SPhillips1337"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SPhillips1337/TranceGen2"
+  },
+  "technologies": {
+    "languages": ["JavaScript", "HTML", "CSS"],
+    "frameworks": [],
+    "libraries": ["Strudel", "Web Audio API"],
+    "tools": ["Python HTTP Server"]
+  },
+  "features": [
+    "Generative trance pattern generation using Strudel",
+    "Automatic song structure progression (Intro → Groove → Breakdown → Build-up → Drop → Outro)",
+    "Real-time parameter control (BPM, filter cutoff, resonance)",
+    "Premium glassmorphic UI with live visualizer",
+    "Local TR-808 sample integration",
+    "Browser-based, no server dependencies",
+    "State machine-driven phase transitions"
+  ],
+  "architecture": {
+    "pattern": "Client-side SPA",
+    "components": [
+      {
+        "name": "State Machine",
+        "description": "Manages automatic progression through 6 trance track phases",
+        "location": "app.js"
+      },
+      {
+        "name": "Pattern Generator",
+        "description": "Generates phase-specific Strudel patterns dynamically",
+        "location": "app.js (getTranceCode)"
+      },
+      {
+        "name": "Audio Engine",
+        "description": "Strudel Web API integration for synthesis and playback",
+        "location": "app.js"
+      },
+      {
+        "name": "UI Controller",
+        "description": "Real-time parameter controls and visualizer",
+        "location": "index.html, style.css"
+      },
+      {
+        "name": "Sample Library",
+        "description": "Local TR-808 percussion samples",
+        "location": "samples/808/"
+      }
+    ]
+  },
+  "dependencies": {
+    "runtime": [
+      {
+        "name": "@strudel/web",
+        "version": "latest",
+        "source": "https://esm.sh/@strudel/web@latest",
+        "purpose": "Core music generation engine"
+      }
+    ],
+    "development": [
+      {
+        "name": "Python 3",
+        "version": "3.x",
+        "purpose": "Local HTTP server for development"
+      }
+    ]
+  },
+  "setup": {
+    "prerequisites": [
+      "Python 3.x installed",
+      "Modern web browser (Chrome/Edge recommended)",
+      "TR-808 samples in samples/808/ directory"
+    ],
+    "steps": [
+      "Navigate to project directory",
+      "Run: python3 -m http.server 8001",
+      "Open browser to http://localhost:8001",
+      "Click START SESSION button"
+    ]
+  },
+  "usage": {
+    "quickstart": "See USAGE.md for detailed instructions",
+    "controls": {
+      "BPM": "128-145 BPM range, adjusts tempo in real-time",
+      "Filter Cutoff": "100-5000 Hz, controls low-pass filter on bass/leads",
+      "Resonance": "0-20, controls filter Q factor for trance sweeps"
+    }
+  },
+  "documentation": {
+    "readme": "README.md",
+    "usage": "USAGE.md",
+    "development": "AGENTS.md",
+    "walkthrough": "../brain/66a512ec-9087-4017-87de-cbe44125a31b/walkthrough.md"
+  },
+  "inspiration": {
+    "projects": [
+      "honcoops/strudel-trance",
+      "eefano/strudel-experiments"
+    ],
+    "methodology": "Switch Angel (automatic trance structure progression)",
+    "samples": "geikha/tidal-drum-machines"
+  },
+  "license": "MIT",
+  "tags": [
+    "generative-music",
+    "trance",
+    "strudel",
+    "web-audio",
+    "live-coding",
+    "browser-based",
+    "state-machine",
+    "edm"
+  ],
+  "notes": [
+    "Developed with AI assistance (Antigravity agent)",
+    "Uses Switch Angel methodology for automatic song structure",
+    "Fully client-side, no backend required",
+    "Optimized for headphone listening to appreciate sub-bass frequencies",
+    "Phase transitions occur every 8-16 bars for natural progression"
+  ]
+}

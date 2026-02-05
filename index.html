@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TranceGen2- Strudel</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="../favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700&family=Outfit:wght@300;600;900&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div class="glass-container">
+        <header>
+            <h1>TranceGen2 <span>STRUDEL</span></h1>
+            <p class="subtitle">Generative Euphoric Trance Engine</p>
+        </header>
+
+        <main>
+            <div class="controls">
+                <div class="control-group">
+                    <label for="bpm">BPM: <span id="bpm-val">138</span></label>
+                    <input type="range" id="bpm" min="128" max="145" value="138">
+                </div>
+                <div class="control-group">
+                    <label for="cutoff">Filter Cutoff</label>
+                    <input type="range" id="cutoff" min="100" max="5000" value="1200">
+                </div>
+                <div class="control-group">
+                    <label for="resonance">Resonance</label>
+                    <input type="range" id="resonance" min="0" max="20" value="8">
+                </div>
+            </div>
+
+            <div class="transport">
+                <button id="start-btn" class="primary-btn">START SESSION</button>
+                <button id="stop-btn" class="secondary-btn" disabled>STOP</button>
+            </div>
+
+            <div class="visualizer-container">
+                <canvas id="visualizer"></canvas>
+            </div>
+
+            <div class="status-panel">
+                <div class="status-item">
+                    <span class="label">Phase:</span>
+                    <span id="current-phase" class="value">Awaiting Start</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">Energy:</span>
+                    <div class="energy-bar">
+                        <div id="energy-fill"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Built with Strudel & Tone.js &bull; Inspired by honcoops & eefano</p>
+        </footer>
+    </div>
+
+    <!-- Strudel Web API -->
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>
