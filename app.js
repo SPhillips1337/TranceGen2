@@ -1,27 +1,50 @@
 import { initStrudel, samples } from 'https://esm.sh/@strudel/web@latest';
 
-// 0. Variables for visualizer
+// 0. Variables for visualizer and state
 let analyser = null;
 let dataArray = null;
+let evaluate = null;
+let isPlaying = false;
+let currentPhaseIndex = 0;
+let barCount = 1;
+let currentEnergy = 0;
+let phaseInterval = null;
+let lastBarStartTime = 0;
+let currentBarDuration = 0;
 
 // 1. Initialize Strudel and register samples
-// RolandTR808 is not in the default Dirt-Samples, so we map it manually or use a different bank name.
-// We'll map the standard names (bd, sd, hh, oh) to the 808 samples directly for ease of use.
-const strudel = await initStrudel({
-    prebake: () => {
-        samples({
-            'tr808': {
-                'bd': '808/BD.wav',
-                'sd': '808/SD.wav',
-                'hh': '808/CH.wav',
-                'oh': '808/OH.wav'
-            }
-        }, 'samples/');
-    }
-});
+let strudel = null;
+try {
+    strudel = await initStrudel({
+        prebake: () => {
+            console.log('Registering samples in prebake...');
+            samples({
+                'tr808_bd': '808/BD.wav',
+                'tr808_sd': '808/SD.wav',
+                'tr808_hh': '808/CH.wav',
+                'tr808_oh': '808/OH.wav'
+            }, 'samples/');
+        }
+    });
+    console.log('Strudel initialized:', strudel);
+} catch (err) {
+    console.error('initStrudel failed:', err);
+}
 
-const { evaluate } = strudel;
-evaluate("samples('github:tidalcycles/Dirt-Samples')");
+if (strudel) {
+    try {
+        evaluate = strudel.evaluate;
+    } catch (e) {
+        console.warn('Could not read evaluate from strudel:', e);
+    }
+}
+
+// NOTE: removed an unconditional remote samples evaluate which could fail
+// and prevent subsequent code from running in some environments.
+
+// Expose to window for debugging and inspector access
+window.strudel = strudel;
+window.evaluate = evaluate;
 
 // UI Elements
 const startBtn = document.getElementById('start-btn');
@@ -34,19 +57,6 @@ const phaseDisplay = document.getElementById('current-phase');
 const energyFill = document.getElementById('energy-fill');
 const visualizerCanvas = document.getElementById('visualizer');
 
-// Validation: Ensure all UI elements exist
-const uiElements = {
-    startBtn, stopBtn, bpmSlider, bpmVal, cutoffSlider,
-    resonanceSlider, phaseDisplay, energyFill, visualizerCanvas
-};
-
-Object.entries(uiElements).forEach(([name, element]) => {
-    if (!element) {
-        console.error(`Critical Error: DOM element "${name}" not found.`);
-        // In a real app, we might show a user-friendly overlay here
-    }
-});
-
 const PHASES = [
     { name: 'Intro', duration: 8, energy: 20 },
     { name: 'Groove', duration: 16, energy: 60 },
@@ -56,13 +66,6 @@ const PHASES = [
     { name: 'Outro', duration: 8, energy: 40 }
 ];
 
-// State
-let isPlaying = false;
-let currentPhaseIndex = 0;
-let barCount = 1;
-let currentEnergy = 0;
-let phaseInterval = null;
-
 // Pattern Definitions
 const getTranceCode = () => {
     const phase = PHASES[currentPhaseIndex];
@@ -71,13 +74,14 @@ const getTranceCode = () => {
     const resonance = Number(resonanceSlider.value);
 
     // Dynamic pattern parts based on phase
-    const kickPattern = phase.name === 'Breakdown' ? '~' : 'bd*4';
+    // Use underscores to avoid search/slash operators in mini-notation
+    const kickPattern = phase.name === 'Breakdown' ? '~' : 'tr808_bd*4';
     const kickGain = (phase.name === 'Intro' || phase.name === 'Outro') ? 0.6 : 0.8;
     const kickLPF = phase.name === 'Intro' ? '.lpf(800)' : '';
 
-    const hatsPattern = ['Groove', 'Build-up', 'Drop'].includes(phase.name) ? '~ hh ~ hh' : '~';
-    const openHatPattern = ['Groove', 'Drop'].includes(phase.name) ? '~ ~ oh ~' : '~';
-    const snarePattern = phase.name === 'Build-up' ? 'sd*8' : (phase.name === 'Drop' ? '~ sd' : '~');
+    const hatsPattern = ['Groove', 'Build-up', 'Drop'].includes(phase.name) ? '~ tr808_hh ~ tr808_hh' : '~';
+    const openHatPattern = ['Groove', 'Drop'].includes(phase.name) ? '~ ~ tr808_oh ~' : '~';
+    const snarePattern = phase.name === 'Build-up' ? 'tr808_sd*8' : (phase.name === 'Drop' ? '~ tr808_sd' : '~');
 
     const bassGain = ['Groove', 'Build-up', 'Drop'].includes(phase.name) ? 0.6 : 0;
     const leadGain = ['Breakdown', 'Build-up', 'Drop'].includes(phase.name) ? 0.4 : 0;
@@ -87,13 +91,13 @@ const getTranceCode = () => {
 setcpm(${bpm}/4);
 
 // 1. Percussion
-const kick = s("${kickPattern}").bank("tr808").gain(${kickGain})${kickLPF};
-const hats = s("${hatsPattern}").bank("tr808").gain(0.4).decay(0.1);
-const openHat = s("${openHatPattern}").bank("tr808").gain(0.3).decay(0.3);
-const snare = s("${snarePattern}").bank("tr808").gain(0.4);
+const kick = s("${kickPattern}").gain(${kickGain})${kickLPF};
+const hats = s("${hatsPattern}").gain(0.4).decay(0.1);
+const openHat = s("${openHatPattern}").gain(0.3).decay(0.3);
+const snare = s("${snarePattern}").gain(0.4);
 
 // 2. Bassline
-const bass = note("a2 a2 a2 a2 a2 a2 a2 a2".fast(2))
+const bass = note("a2 a2 a2 a2 a2 a2 a2 a2").fast(2)
   .sound("sawtooth")
   .lpf(${cutoff})
   .resonance(${resonance})
@@ -103,7 +107,7 @@ const bass = note("a2 a2 a2 a2 a2 a2 a2 a2".fast(2))
 // 3. Euphoric Arpeggio
 const lead = note("a4 c5 e5 a5").fast(4)
   .sound("sawtooth")
-  .lpf(sine.range(500, 3000).slow(8))
+  .lpf("<800 1200 2000 2800>")
   .room(0.8)
   .delay(0.5)
   .gain(${leadGain})
@@ -128,66 +132,24 @@ stack(
 `;
 };
 
-// Initialize Audio Context and Start
-const startSession = async () => {
-    if (isPlaying) return;
+window.getTranceCode = getTranceCode;
 
-    try {
-        phaseDisplay.textContent = 'Initializing...';
-        await new Promise(r => setTimeout(r, 500));
-
-        currentPhaseIndex = 0;
-        barCount = 1;
-
-        await evaluate(getTranceCode());
-        isPlaying = true;
-        startBtn.disabled = true;
-        stopBtn.disabled = false;
-
-        startPhaseLoop();
-        initVisualizer();
-    } catch (err) {
-        console.error('Strudel failed to start:', err);
-        phaseDisplay.textContent = 'Error';
-    }
-};
-
-// Stop Music
-const stopSession = () => {
-    evaluate('stack()');
-    isPlaying = false;
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
-    phaseDisplay.textContent = 'Silent';
-    clearTimeout(phaseInterval);
-    energyFill.style.width = '0%';
-};
-
-// Automatic Phase Progression (Switch Angel)
-let lastBarStartTime = 0;
-let currentBarDuration = 0;
-
+// Automatic Phase Progression
 const tick = () => {
     if (!isPlaying) return;
 
-    // 1. Check if the previous bar was the last one of the phase
     if (barCount > PHASES[currentPhaseIndex].duration) {
         currentPhaseIndex = (currentPhaseIndex + 1) % PHASES.length;
         barCount = 1;
         console.log(`Phase Transition: ${PHASES[currentPhaseIndex].name}`);
-
-        // Evaluate new code so it starts playing for the new bar
         evaluate(getTranceCode());
     }
 
     const phase = PHASES[currentPhaseIndex];
-
-    // 2. UI update for the bar that is starting NOW
     phaseDisplay.textContent = `${phase.name} (Bar ${barCount}/${phase.duration})`;
     energyFill.style.width = `${phase.energy}%`;
     currentEnergy = phase.energy;
 
-    // 3. Increment for the NEXT tick
     barCount++;
 
     const bpm = Number(bpmSlider.value);
@@ -203,38 +165,47 @@ const startPhaseLoop = () => {
 
 const syncPhaseLoop = () => {
     if (!isPlaying) return;
-
-    // Calculate how far we were into the bar at the OLD bpm
     const elapsed = Date.now() - lastBarStartTime;
     const progress = Math.min(elapsed / currentBarDuration, 0.99);
-
-    // Calculate new duration
     const bpm = Number(bpmSlider.value);
     currentBarDuration = (60 / bpm) * 4 * 1000;
-
-    // Schedule next tick for the remaining time
     clearTimeout(phaseInterval);
     const remaining = currentBarDuration * (1 - progress);
     phaseInterval = setTimeout(tick, remaining);
 };
 
-// Basic Visualizer (Oscilloscope style)
+// Real Visualizer (AnalyserNode)
 const initVisualizer = () => {
     const ctx = visualizerCanvas.getContext('2d');
 
-    // Attempt to connect to Strudel's audio output for real visualization
-    if (strudel && strudel.output) {
+    // Attempt to connect to Strudel's audio output or find the context directly
+    if (strudel) {
         try {
-            const audioCtx = strudel.context || (strudel.getAudioContext && strudel.getAudioContext());
-            if (audioCtx) {
-                analyser = audioCtx.createAnalyser();
-                analyser.fftSize = 256;
-                strudel.output.connect(analyser);
-                dataArray = new Uint8Array(analyser.frequencyBinCount);
-                console.log('Successfully connected real audio visualizer');
+            const audioCtx = strudel.context ||
+                (strudel.getAudioContext && strudel.getAudioContext()) ||
+                (strudel.weContext && strudel.weContext.context) ||
+                (strudel.scheduler && strudel.scheduler.context);
+
+            const outputNode = strudel.output ||
+                (strudel.weContext && strudel.weContext.out) ||
+                (strudel.scheduler && strudel.scheduler.out);
+
+            console.log('Visualizer: audioCtx=', audioCtx, 'outputNode=', outputNode);
+            if (audioCtx && outputNode) {
+                try {
+                    analyser = audioCtx.createAnalyser();
+                    analyser.fftSize = 256;
+                    outputNode.connect(analyser);
+                    dataArray = new Uint8Array(analyser.frequencyBinCount);
+                    console.log('Visualizer connected to Strudel output');
+                } catch (e) {
+                    console.warn('Visualizer connection failed during connect:', e);
+                }
+            } else {
+                console.warn('Visualizer: Could not find audioCtx or outputNode on strudel');
             }
         } catch (e) {
-            console.warn('Could not connect real audio analyser, falling back to simulation', e);
+            console.warn('Visualizer connection failed:', e);
         }
     }
 
@@ -242,10 +213,9 @@ const initVisualizer = () => {
         if (!isPlaying) return;
         requestAnimationFrame(draw);
 
-        ctx.fillStyle = 'rgba(5, 5, 10, 0.2)';
+        ctx.fillStyle = 'rgba(5, 5, 15, 0.2)';
         ctx.fillRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
 
-        // Dynamic styling based on energy
         const hue = 180 + (currentEnergy * 0.8);
         ctx.strokeStyle = `hsl(${hue}, 100%, 50%)`;
         ctx.lineWidth = 2 + (currentEnergy / 40);
@@ -255,47 +225,100 @@ const initVisualizer = () => {
         ctx.beginPath();
 
         if (analyser && dataArray) {
-            // Real audio data
             analyser.getByteTimeDomainData(dataArray);
             const sliceWidth = visualizerCanvas.width * 1.0 / dataArray.length;
             let x = 0;
-
             for (let i = 0; i < dataArray.length; i++) {
                 const v = dataArray[i] / 128.0;
                 const y = v * visualizerCanvas.height / 2;
-
                 if (i === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
                 x += sliceWidth;
             }
         } else {
-            // Enhanced simulation
             const time = Date.now() / 1000;
-            const speed = 5 + (currentEnergy / 10);
-            const frequency = 0.02 + (currentEnergy / 2000);
-
             for (let x = 0; x < visualizerCanvas.width; x++) {
-                const y = (visualizerCanvas.height / 2) +
-                         Math.sin(x * frequency + time * speed) * (currentEnergy / 2) *
-                         Math.sin(time * 0.5);
+                const y = (visualizerCanvas.height / 2) + Math.sin(x * 0.05 + time * 10) * (currentEnergy / 2);
                 if (x === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
             }
         }
-
         ctx.stroke();
         ctx.shadowBlur = 0;
     };
     draw();
 };
 
+// Event Handlers
+const startSession = async () => {
+    if (isPlaying) return;
+    try {
+        phaseDisplay.textContent = 'Initializing...';
+
+        // Ensure AudioContext is resumed (required for browser security)
+        const audioCtx = strudel.context ||
+            (strudel.getAudioContext && strudel.getAudioContext()) ||
+            (strudel.weContext && strudel.weContext.context) ||
+            (strudel.scheduler && strudel.scheduler.context);
+
+        if (audioCtx && audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+        }
+
+        // If Strudel exposes a start/play method, call it on user gesture
+        if (strudel) {
+            try {
+                if (typeof strudel.start === 'function') {
+                    await strudel.start();
+                    console.log('Called strudel.start()');
+                } else if (typeof strudel.play === 'function') {
+                    await strudel.play();
+                    console.log('Called strudel.play()');
+                }
+            } catch (e) {
+                console.warn('strudel start/play threw:', e);
+            }
+        }
+
+        await new Promise(r => setTimeout(r, 500));
+        currentPhaseIndex = 0;
+        barCount = 1;
+        try {
+            await evaluate(getTranceCode());
+            console.log('Initial evaluate succeeded');
+        } catch (e) {
+            console.error('Initial evaluate failed:', e);
+            throw e;
+        }
+        isPlaying = true;
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        startPhaseLoop();
+        initVisualizer();
+    } catch (err) {
+        console.error('Strudel failed to start:', err);
+        phaseDisplay.textContent = 'Error';
+    }
+};
+
+window.startSession = startSession;
+
+const stopSession = () => {
+    evaluate('stack()');
+    isPlaying = false;
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    phaseDisplay.textContent = 'Silent';
+    clearTimeout(phaseInterval);
+    energyFill.style.width = '0%';
+};
+
 // Utils
 const debounce = (func, wait) => {
     let timeout;
-    return function(...args) {
-        const context = this;
+    return (...args) => {
         clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(context, args), wait);
+        timeout = setTimeout(() => func(...args), wait);
     };
 };
 
@@ -303,7 +326,7 @@ const debouncedEvaluate = debounce(() => {
     if (isPlaying) evaluate(getTranceCode());
 }, 150);
 
-// Event Listeners
+// Listeners
 startBtn.addEventListener('click', startSession);
 stopBtn.addEventListener('click', stopSession);
 

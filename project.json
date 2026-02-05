@@ -85,8 +85,8 @@
     ],
     "steps": [
       "Navigate to project directory",
-      "Run: python3 -m http.server 8001",
-      "Open browser to http://localhost:8001",
+      "Run: python3 -m http.server 8002",
+      "Open browser to http://localhost:8002",
       "Click START SESSION button"
     ]
   },

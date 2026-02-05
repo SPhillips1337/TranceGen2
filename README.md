@@ -16,11 +16,11 @@ A generative trance music engine built with [Strudel](https://strudel.cc/) that 
 1. **Start the local server:**
    ```bash
    cd /var/www/html/TranceGen2/strudel_new
-   python3 -m http.server 8001
+   python3 -m http.server 8002
    ```
 
 2. **Open in browser:**
-   Navigate to `http://localhost:8001`
+   Navigate to `http://localhost:8002`
 
 3. **Start the session:**
    Click **START SESSION** and let the track evolve!

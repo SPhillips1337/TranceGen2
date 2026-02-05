@@ -6,11 +6,11 @@
 
 1. **Launch the web server:**
    ```bash
-   python3 -m http.server 8001 --directory /var/www/html/TranceGen2/strudel_new
+   python3 -m http.server 8002 --directory /var/www/html/TranceGen2/strudel_new
    ```
 
 2. **Open your browser:**
-   Navigate to `http://localhost:8001`
+   Navigate to `http://localhost:8002`
 
 3. **Initialize audio:**
    Click the **START SESSION** button to begin playback
