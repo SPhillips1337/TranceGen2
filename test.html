@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Test</title>
+</head>
+<body>
+    <h1>TranceGen2 Audio Test</h1>
+    <button id="test-btn">Test Audio</button>
+    <div id="status">Ready</div>
+    
+    <script type="module">
+        import { initStrudel, samples } from 'https://esm.sh/@strudel/web@latest';
+        
+        const testBtn = document.getElementById('test-btn');
+        const status = document.getElementById('status');
+        
+        testBtn.addEventListener('click', async () => {
+            try {
+                status.textContent = 'Initializing...';
+                
+                const strudel = await initStrudel({
+                    prebake: () => {
+                        samples({
+                            'tr808/bd': 'samples/808/BD.wav',
+                            'tr808/sd': 'samples/808/SD.wav',
+                            'tr808/hh': 'samples/808/CH.wav',
+                            'tr808/oh': 'samples/808/OH.wav'
+                        });
+                    }
+                });
+                
+                const { evaluate } = strudel;
+                
+                status.textContent = 'Playing...';
+                await evaluate(`
+                    setcpm(138/4);
+                    s("tr808/bd*4").gain(0.8)
+                `);
+                
+                status.textContent = 'Audio should be playing!';
+            } catch (err) {
+                status.textContent = 'Error: ' + err.message;
+                console.error(err);
+            }
+        });
+    </script>
+</body>
+</html>

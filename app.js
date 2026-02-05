@@ -6,11 +6,11 @@ import { initStrudel, samples } from 'https://esm.sh/@strudel/web@latest';
 const strudel = await initStrudel({
     prebake: () => {
         samples({
-            'tr808_bd': '808/BD.wav',
-            'tr808_sd': '808/SD.wav',
-            'tr808_hh': '808/CH.wav',
-            'tr808_oh': '808/OH.wav'
-        }, 'samples/');
+            'tr808_bd': 'samples/808/BD.wav',
+            'tr808_sd': 'samples/808/SD.wav',
+            'tr808_hh': 'samples/808/CH.wav',
+            'tr808_oh': 'samples/808/OH.wav'
+        });
     }
 });
 
@@ -38,13 +38,13 @@ const getTranceCode = () => `
 setcpm(${bpmSlider.value}/4);
 
 // 1. Percussion
-const kick = s("bd*4").bank("tr808").gain(0.8);
-const hats = s("~ hh ~ hh").bank("tr808").gain(0.4).decay(0.1);
-const openHat = s("~ ~ oh ~").bank("tr808").gain(0.3).decay(0.3);
-const snare = s("~ sd").bank("tr808").gain(0.4);
+const kick = s("tr808_bd*4").gain(0.8);
+const hats = s("~ tr808_hh ~ tr808_hh").gain(0.4).decay(0.1);
+const openHat = s("~ ~ tr808_oh ~").gain(0.3).decay(0.3);
+const snare = s("~ tr808_sd").gain(0.4);
 
 // 2. Bassline (Classic Rolling 16ths)
-const bass = note("a2 a2 a2 a2 a2 a2 a2 a2".fast(2))
+const bass = note("a2 a2 a2 a2 a2 a2 a2 a2").fast(2)
   .sound("sawtooth")
   .lpf(${cutoffSlider.value})
   .resonance(${resonanceSlider.value})
@@ -52,9 +52,9 @@ const bass = note("a2 a2 a2 a2 a2 a2 a2 a2".fast(2))
   .release(0.08);
 
 // 3. Euphoric Arpeggio
-const lead = note("a4 c5 e5 a5".fast(4))
+const lead = note("a4 c5 e5 a5").fast(4)
   .sound("sawtooth")
-  .lpf(sine.range(500, 3000).slow(8)) // Internal sweep
+  .lpf("<800 1200 2000 2800>") // Sweeping filter for movement
   .room(0.8)
   .delay(0.5)
   .gain(0.4)
