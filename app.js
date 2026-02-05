@@ -101,7 +101,7 @@ const bass = note("a2 a2 a2 a2 a2 a2 a2 a2".fast(2))
   .release(0.08);
 
 // 3. Euphoric Arpeggio
-const lead = note("a4 c5 e5 a5".fast(4))
+const lead = note("a4 c5 e5 a5").fast(4)
   .sound("sawtooth")
   .lpf(sine.range(500, 3000).slow(8))
   .room(0.8)
